@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Futsal 3D Elite Tactical Board</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="ui">
+    <button onclick="addPlayer()">Jugador</button>
+    <button onclick="addGoalkeeper()">Arquero</button>
+    <button onclick="addArrow()">Flecha</button>
+    <button onclick="deleteSelected()">Borrar</button>
+    <button onclick="savePlay()">Guardar</button>
+    <button onclick="loadPlay()">Cargar</button>
+    <button onclick="animatePlay()">Animar</button>
+
+    <!-- Grabar pantalla -->
+    <button id="btnScreenRec" onclick="toggleScreenRecord()">Grabar</button>
+  </div>
+
+  <canvas id="scene"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
