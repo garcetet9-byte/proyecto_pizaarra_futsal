@@ -172,13 +172,12 @@ function setLabel(player, newName) {
   player.add(label);
 }
 
-/* ===================== JUGADORES (más realistas) ===================== */
+/* ===================== JUGADORES ===================== */
 function createHumanoid(THREE, kit, name, isGK = false) {
   const g = new THREE.Group();
   g.userData.kind = isGK ? "goalkeeper" : "player";
   g.userData.team = kit.team;
 
-  // sombra
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(0.6, 28),
     new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.18 })
@@ -187,7 +186,6 @@ function createHumanoid(THREE, kit, name, isGK = false) {
   shadow.position.y = -1.02;
   g.add(shadow);
 
-  // piernas (2)
   const legMat = new THREE.MeshStandardMaterial({ color: kit.shorts, roughness: 0.8 });
   const legGeom = new THREE.CylinderGeometry(0.14, 0.16, 0.8, 14);
 
@@ -197,7 +195,6 @@ function createHumanoid(THREE, kit, name, isGK = false) {
   legR.position.set(0.18, -0.7, 0);
   g.add(legL, legR);
 
-  // botines
   const bootMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
   const bootGeom = new THREE.BoxGeometry(0.18, 0.08, 0.32);
   const bootL = new THREE.Mesh(bootGeom, bootMat);
@@ -206,14 +203,12 @@ function createHumanoid(THREE, kit, name, isGK = false) {
   bootR.position.set(0.18, -1.12, 0.08);
   g.add(bootL, bootR);
 
-  // torso (camiseta)
   const torsoMat = new THREE.MeshStandardMaterial({ color: kit.shirt, roughness: 0.6 });
   const torsoGeom = new THREE.CapsuleGeometry(0.42, 0.95, 6, 16);
   const torso = new THREE.Mesh(torsoGeom, torsoMat);
   torso.position.y = 0.15;
   g.add(torso);
 
-  // hombros
   const shoulderGeom = new THREE.SphereGeometry(0.18, 16, 16);
   const shL = new THREE.Mesh(shoulderGeom, torsoMat);
   shL.position.set(-0.52, 0.55, 0);
@@ -221,7 +216,6 @@ function createHumanoid(THREE, kit, name, isGK = false) {
   shR.position.set(0.52, 0.55, 0);
   g.add(shL, shR);
 
-  // brazos
   const armGeom = new THREE.CylinderGeometry(0.10, 0.11, 0.75, 14);
   const skinMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd, roughness: 0.95 });
   const armL = new THREE.Mesh(armGeom, skinMat);
@@ -232,7 +226,6 @@ function createHumanoid(THREE, kit, name, isGK = false) {
   armR.rotation.z = -0.25;
   g.add(armL, armR);
 
-  // guantes arquero
   if (isGK) {
     const gloveMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
     const gloveGeom = new THREE.BoxGeometry(0.18, 0.10, 0.18);
@@ -243,24 +236,18 @@ function createHumanoid(THREE, kit, name, isGK = false) {
     g.add(gloveL, gloveR);
   }
 
-  // cabeza
   const headGeom = new THREE.SphereGeometry(0.30, 24, 24);
   const head = new THREE.Mesh(headGeom, skinMat);
   head.position.y = 1.25;
   g.add(head);
 
-  // “cuello”
   const neckGeom = new THREE.CylinderGeometry(0.12, 0.14, 0.18, 12);
   const neck = new THREE.Mesh(neckGeom, skinMat);
   neck.position.y = 0.95;
   g.add(neck);
 
-  // etiqueta
   setLabel(g, name);
-
-  // altura base
   g.position.y = 1;
-
   return g;
 }
 
@@ -400,7 +387,6 @@ function updateArrowVisual(arrow, start, end) {
 
 /* ===================== INPUT ===================== */
 function onMouseDown(e) {
-  // Dibujar flecha
   if (toolMode === "arrow") {
     const picked = pickUnderMouse(e);
     const startObj = (picked && players.includes(picked)) ? picked : null;
@@ -480,7 +466,7 @@ function onMouseUp() {
     };
 
     arrows.push(arrowObj);
-    selectedObject = arrowObj.group;
+    selectedObject = arrowObj.group; // queda seleccionada
 
     arrowDraft = null;
     toolMode = "move";
@@ -500,31 +486,53 @@ function onDoubleClickRename(e) {
   if (next && next.trim()) setLabel(picked, next.trim());
 }
 
-/* ===================== ANIMAR (flechas) ===================== */
+/* ===================== ANIMAR SOLO FLECHA SELECCIONADA ===================== */
 function animatePlay() {
+  // Requisito: el usuario debe seleccionar UNA flecha
+  const sel = normalizeSelection(selectedObject);
+  const arrowIdx = sel ? arrows.findIndex(a => a.group === sel) : -1;
+
+  if (arrowIdx < 0) {
+    alert("Seleccioná una flecha para animarla (clic sobre la flecha).");
+    return;
+  }
+
+  // Evitar simultáneo: limpiar jobs actuales
+  moveJobs = [];
+
+  const a = arrows[arrowIdx];
+
+  // Buscar jugador actor por nombre (fromName)
   const byName = new Map(players.map(p => [p.userData.label, p]));
+  let actor = null;
 
-  arrows.forEach(a => {
-    let actor = null;
-    if (a.fromName && byName.has(a.fromName)) actor = byName.get(a.fromName);
+  if (a.fromName && byName.has(a.fromName)) actor = byName.get(a.fromName);
 
-    if (!actor) {
-      let best = null, bestD = 999;
-      players.forEach(p => {
-        const d = p.position.clone().setY(0).distanceTo(a.start.clone().setY(0));
-        if (d < bestD) { bestD = d; best = p; }
-      });
-      if (best && bestD < 1.2) actor = best;
-    }
-    if (!actor) return;
-
-    moveJobs.push({
-      obj: actor,
-      from: actor.position.clone(),
-      to: new THREE.Vector3(a.end.x, actor.position.y, a.end.z),
-      t: 0,
-      dur: 0.9,
+  // Fallback: jugador más cercano al inicio de la flecha
+  if (!actor) {
+    let best = null, bestD = 999;
+    players.forEach(p => {
+      const d = p.position.clone().setY(0).distanceTo(a.start.clone().setY(0));
+      if (d < bestD) { bestD = d; best = p; }
     });
+    if (best && bestD < 1.2) actor = best;
+  }
+
+  if (!actor) {
+    alert("No se encontró jugador para esa flecha. Dibujá la flecha comenzando desde un jugador.");
+    return;
+  }
+
+  // Duración según longitud (más natural)
+  const dist = new THREE.Vector3(a.end.x, 0, a.end.z).distanceTo(new THREE.Vector3(a.start.x, 0, a.start.z));
+  const dur = Math.min(2.0, Math.max(0.35, dist * 0.12)); // escala simple
+
+  moveJobs.push({
+    obj: actor,
+    from: actor.position.clone(),
+    to: new THREE.Vector3(a.end.x, actor.position.y, a.end.z),
+    t: 0,
+    dur,
   });
 }
 
@@ -617,7 +625,6 @@ function loadPlay() {
   createBall();
   if (data.ball && ball) ball.position.set(data.ball.x, data.ball.y, data.ball.z);
 
-  // recrear jugadores (kits)
   const teamA = { team: "A", shirt: 0x0066ff, shorts: 0x0b2a66 };
   const teamB = { team: "B", shirt: 0xffcc00, shorts: 0x333333 };
   const gkKit = { team: "GK", shirt: 0xff3333, shorts: 0x661111 };
@@ -636,7 +643,6 @@ function loadPlay() {
     players.push(p);
   });
 
-  // recrear flechas
   (data.arrows || []).forEach(ar => {
     const start = new THREE.Vector3(ar.start.x, ar.start.y, ar.start.z);
     const end = new THREE.Vector3(ar.end.x, ar.end.y, ar.end.z);
@@ -651,13 +657,12 @@ function loadPlay() {
 async function toggleScreenRecord() {
   try {
     if (!isScreenRecording) {
-      // START
       recordedChunks = [];
 
-    screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 30, displaySurface: "browser" }, // prioriza pestaña/ventana
-        audio: false, // si no querés audio
-        });
+      screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 30 },
+        audio: true,
+      });
 
       const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
         ? "video/webm;codecs=vp9"
@@ -670,7 +675,6 @@ async function toggleScreenRecord() {
       };
 
       mediaRecorder.onstop = () => {
-        // Auto-descarga
         const blob = new Blob(recordedChunks, { type: "video/webm" });
         const url = URL.createObjectURL(blob);
 
@@ -684,7 +688,6 @@ async function toggleScreenRecord() {
 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-        // cortar tracks por prolijidad
         if (screenStream) {
           screenStream.getTracks().forEach(t => t.stop());
           screenStream = null;
@@ -695,18 +698,16 @@ async function toggleScreenRecord() {
         syncScreenRecUI();
       };
 
-      // si el usuario corta desde el navegador (Stop sharing), también paramos
       screenStream.getVideoTracks()[0].addEventListener("ended", () => {
         if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
       });
 
-      mediaRecorder.start(250); // chunk cada 250ms
+      mediaRecorder.start(250);
       isScreenRecording = true;
       syncScreenRecUI();
       return;
     }
 
-    // STOP
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.stop();
     }
