@@ -7,10 +7,9 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
 
     centerCircleR = 3,
 
-    // Área penal reglamentaria (D)
     penaltyR = 6,
-    goalInnerWidth = 3,   // 3m interno
-    postWidth = 0.08,     // 8cm
+    goalInnerWidth = 3,
+    postWidth = 0.08,
     penaltyMark = 6,
     secondPenaltyMark = 10,
 
@@ -34,9 +33,24 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
   const court = new THREE.Group();
   court.name = "courtVisual";
 
-  const surfaceMat = new THREE.MeshStandardMaterial({ color: colors.surface, roughness: 0.95, metalness: 0.0 });
-  const goalMat = new THREE.MeshStandardMaterial({ color: colors.goal, roughness: 0.35, metalness: 0.1 });
-  const netMat = new THREE.MeshStandardMaterial({ color: colors.net, transparent: true, opacity: 0.12, roughness: 1.0 });
+  const surfaceMat = new THREE.MeshStandardMaterial({
+    color: colors.surface,
+    roughness: 0.95,
+    metalness: 0.0,
+  });
+
+  const goalMat = new THREE.MeshStandardMaterial({
+    color: colors.goal,
+    roughness: 0.35,
+    metalness: 0.1,
+  });
+
+  const netMat = new THREE.MeshStandardMaterial({
+    color: colors.net,
+    transparent: true,
+    opacity: 0.12,
+    roughness: 1.0,
+  });
 
   const lineMat = new THREE.LineBasicMaterial({ color: colors.lines });
 
@@ -71,20 +85,21 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
     return line;
   }
 
-  function addCircle(cx, cz, r) {
-    return addArc(cx, cz, r, 0, Math.PI * 2, 128);
-  }
+  function addCircle(cx, cz, r) { return addArc(cx, cz, r, 0, Math.PI * 2, 128); }
+  function addSpot(cx, cz, r = 0.06) { return addCircle(cx, cz, r); }
 
-  function addSpot(cx, cz, r = 0.06) {
-    return addCircle(cx, cz, r);
-  }
-
-  // Superficie
+  // =======================
+  // Superficie (PISO)
+  // =======================
   {
     const geom = new THREE.PlaneGeometry(W, L);
     const mesh = new THREE.Mesh(geom, surfaceMat);
     mesh.rotation.x = -Math.PI / 2;
     mesh.position.y = surfaceY;
+
+    // ✅ clave para sombras
+    mesh.receiveShadow = true;
+
     surface.add(mesh);
   }
 
@@ -109,11 +124,8 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
   addArc( xCorner, -zCorner, cornerArcR, Math.PI, Math.PI * 1.5, 32);
   addArc(-xCorner, -zCorner, cornerArcR, Math.PI * 1.5, Math.PI * 2, 32);
 
-  // ===== Área penal reglamentaria (D) =====
-  // “Outside of each goalpost”:
+  // Área penal
   const outsideX = (goalInnerWidth * 0.5) + postWidth;
-
-  // FIX: la línea superior debe cerrar exactamente con los verticales -> topHalf = outsideX
   const topHalf = outsideX;
 
   function addPenaltyArea(sign) {
@@ -121,14 +133,10 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
     const inDir = -sign;
     const zFront = goalLineZ + inDir * penaltyR;
 
-    // Verticales 6m
     addLine(new THREE.Vector3(-outsideX, markingsY, goalLineZ), new THREE.Vector3(-outsideX, markingsY, zFront));
     addLine(new THREE.Vector3( outsideX, markingsY, goalLineZ), new THREE.Vector3( outsideX, markingsY, zFront));
-
-    // Línea superior (cerrada)
     addLine(new THREE.Vector3(-topHalf, markingsY, zFront), new THREE.Vector3(topHalf, markingsY, zFront));
 
-    // Arcos laterales radio 6m
     if (sign > 0) {
       addArc(-outsideX, goalLineZ, penaltyR, -Math.PI, -Math.PI / 2, 64);
       addArc( outsideX, goalLineZ, penaltyR, -Math.PI / 2, 0, 64);
@@ -137,7 +145,6 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
       addArc( outsideX, goalLineZ, penaltyR, 0, Math.PI / 2, 64);
     }
 
-    // Puntos penal / doble penal (desde borde exterior de goal line)
     const goalLineBackEdgeZ = sign * hl;
     addSpot(0, goalLineBackEdgeZ - sign * penaltyMark, 0.06);
     addSpot(0, goalLineBackEdgeZ - sign * secondPenaltyMark, 0.06);
@@ -146,7 +153,9 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
   addPenaltyArea(+1);
   addPenaltyArea(-1);
 
-  // ===== Arcos =====
+  // =======================
+  // Arcos (GOALS)
+  // =======================
   function addGoal(sign, name) {
     const goal = new THREE.Group();
     goal.name = name;
@@ -186,6 +195,15 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
     const net = new THREE.Mesh(netGeom, netMat);
     net.position.set(0, goalHeight * 0.5, goalLineZ + outDir * (goalDepth * 0.5));
 
+    // ✅ sombras para que se vea más real
+    [pL, pR, cross, bL, bR, crossBack].forEach(m => {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    });
+
+    net.castShadow = false;     // red muy liviana
+    net.receiveShadow = true;
+
     goal.add(pL, pR, cross, bL, bR, crossBack, net);
     goals.add(goal);
   }
@@ -193,8 +211,11 @@ export function createFutsalCourtVisual(THREE, opts = {}) {
   addGoal(+1, "goal_north");
   addGoal(-1, "goal_south");
 
+  // ✅ (Opcional) desactivar raycast para que no interfiera con picking
   if (disableRaycast) {
-    court.traverse((o) => { if (o.isMesh) o.raycast = () => null; });
+    court.traverse((o) => {
+      if (o.isMesh) o.raycast = () => null;
+    });
   }
 
   return court;

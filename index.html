@@ -6,7 +6,18 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+ 
   <div id="ui">
+     <select id="teamSelect">
+  <option value="A">Equipo A</option>
+  <option value="B">Equipo B</option>
+
+</select>
+<select id="arrowType">
+  <option value="straight">Flecha Recta</option>
+  <option value="curveLeft">Curva Izquierda</option>
+  <option value="curveRight">Curva Derecha</option>
+</select>
     <button onclick="addPlayer()">Jugador</button>
     <button onclick="addGoalkeeper()">Arquero</button>
     <button onclick="addArrow()">Flecha</button>
@@ -14,8 +25,6 @@
     <button onclick="savePlay()">Guardar</button>
     <button onclick="loadPlay()">Cargar</button>
     <button onclick="animatePlay()">Animar</button>
-
-    <!-- Grabar pantalla -->
     <button id="btnScreenRec" onclick="toggleScreenRecord()">Grabar</button>
   </div>
 
